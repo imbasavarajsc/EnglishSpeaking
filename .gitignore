@@ -1,0 +1,6 @@
+venv/
+.env
+web/node_modules/
+web/.astro/
+__pycache__/
+static_old/

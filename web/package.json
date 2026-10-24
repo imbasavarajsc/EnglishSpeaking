@@ -1,0 +1,14 @@
+{
+  "name": "speakup-web",
+  "type": "module",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build"
+  },
+  "dependencies": {
+    "astro": "^5.0.0",
+    "jspdf": "^2.5.1"
+  }
+}
