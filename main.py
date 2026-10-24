@@ -253,6 +253,7 @@ def chat(req: ChatRequest, request: Request):
     add_use(ikey)
     return response.parsed
 
-
+from tts import router as tts_router
+app.include_router(tts_router)
 # This must stay LAST, after all routes
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
