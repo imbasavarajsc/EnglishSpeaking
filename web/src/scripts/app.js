@@ -1,17 +1,17 @@
 import { jsPDF } from 'jspdf';
- 
+
 const TUTOR_NAME = document.body.dataset.tutor || 'Matty';
 const SILENCE_MS = 3000;
 const IDLE_MS = 30000;
 const LOG_KEY = 'speakup_log';
 const LEVEL_KEY = 'speakup_level';
- 
+
 const GREETINGS = {
   beginner: `Hello! I am ${TUTOR_NAME}. Let's talk slowly and simply. How are you today?`,
   intermediate: `Hi, I'm ${TUTOR_NAME}. Let's have a chat. How's your day going so far?`,
   advanced: `Hey, I'm ${TUTOR_NAME}. Good to talk. What's been on your mind lately?`,
 };
- 
+
 const TOPICS = {
   routine: { opener: 'Let us talk about your day. What time did you wake up today?', starters: ['Tell me what you did this morning.', 'Describe your usual day.', 'What is the best part of your day?'] },
   food: { opener: 'Let us talk about food. What did you eat today?', starters: ['Describe your favourite dish.', 'How do you cook it?', 'What food do you dislike?'] },
@@ -23,7 +23,7 @@ const TOPICS = {
   family: { opener: 'Let us talk about family. Who do you live with?', starters: ['Tell me about your mother or father.', 'What do you do together on weekends?', 'Describe a happy family memory.'] },
 };
 const GENERAL_STARTERS = ['Tell me about your day.', 'Describe your favourite place.', 'What did you do last weekend?', 'Talk about something you are proud of.'];
- 
+
 const $ = (s) => document.querySelector(s);
 const chatEl = $('#chat');
 const emptyEl = $('#empty');
@@ -34,7 +34,7 @@ const hintBtn = $('#hintBtn');
 const hintEl = $('#hint');
 const pdfBtn = $('#pdfBtn');
 const pdfCount = $('#pdfCount');
- 
+
 /* ---------- quote ---------- */
 const QUOTES = [
   ['The limits of my language mean the limits of my world.', 'Ludwig Wittgenstein'],
@@ -48,7 +48,7 @@ const QUOTES = [
   $('#quote').textContent = text;
   $('#quoteBy').textContent = by;
 }
- 
+
 const PROMPTS = [
   'Describe the best meal you have ever had.',
   'Tell me about a day you will never forget.',
@@ -72,7 +72,7 @@ $('#tryGo').addEventListener('click', () => {
   customOpener = `Let's start with this. ${PROMPTS[promptIndex]}`;
   micBtn.click();
 });
- 
+
 let history = [];
 let active = false;
 let micOpen = false;
@@ -88,12 +88,12 @@ let level = 'intermediate';
 let topic = '';
 let hintIndex = 0;
 let lastUserBubble = null;
- 
+
 function setState(s, text) {
   document.body.dataset.state = s;
   if (text !== undefined) statusEl.textContent = text;
 }
- 
+
 function getVisitorId() {
   try {
     let id = localStorage.getItem('speakup_visitor');
@@ -104,7 +104,7 @@ function getVisitorId() {
     return id;
   } catch { return 'anon'; }
 }
- 
+
 /* ---------- level & topic ---------- */
 function setLevel(l) {
   level = l;
@@ -140,7 +140,7 @@ let saved = 'intermediate';
 try { saved = localStorage.getItem(LEVEL_KEY) || saved; } catch {}
 setLevel(GREETINGS[saved] ? saved : 'intermediate');
 setTopic('');
- 
+
 /* ---------- hints ---------- */
 hintBtn.addEventListener('click', () => {
   const list = topic && TOPICS[topic] ? TOPICS[topic].starters : GENERAL_STARTERS;
@@ -149,7 +149,7 @@ hintBtn.addEventListener('click', () => {
   hintIndex++;
   if (micOpen) armIdleTimer();
 });
- 
+
 /* ---------- practice sheet (per day) ---------- */
 function todayKey() { return new Date().toLocaleDateString('en-CA'); }
 function readLog() {
@@ -183,7 +183,7 @@ function updatePdfButton() {
   pdfCount.textContent = n ? `(${n})` : '';
 }
 function clean(t) {
-  return String(t || '').replace(/[^\x20-\x7E -ÿ]/g, "'").replace(/\s+/g, ' ').trim();
+  return String(t || '').replace(/[^\x20-\x7E -ÿ]/g, "'").replace(/\s+/g, ' ').trim();
 }
 function downloadPdf() {
   const d = readLog();
@@ -195,7 +195,7 @@ function downloadPdf() {
   const maxW = W - M * 2;
   let y = M;
   const need = (h) => { if (y + h > H - M) { doc.addPage(); y = M; } };
- 
+
   doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
   doc.text('My English practice', M, y); y += 24;
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(100);
@@ -209,7 +209,7 @@ function downloadPdf() {
   }
   doc.text(`${d.items.length} sentence${d.items.length === 1 ? '' : 's'} to revise`, M, y); y += 26;
   doc.setTextColor(0);
- 
+
   d.items.forEach((it, i) => {
     const said = doc.splitTextToSize(clean(it.said), maxW - 12);
     const better = doc.splitTextToSize(clean(it.better), maxW - 12);
@@ -239,7 +239,7 @@ function downloadPdf() {
 }
 pdfBtn.addEventListener('click', downloadPdf);
 updatePdfButton();
- 
+
 /* ---------- chat bubbles ---------- */
 function showChat() { emptyEl.hidden = true; }
 function addMessage(role, text, live) {
@@ -283,7 +283,7 @@ function wordDiff(said, better) {
   while (j < m) out.push(['add', b[j++]]);
   return out;
 }
- 
+
 function addCorrection(said, better, tip) {
   const el = document.createElement('div');
   el.className = 'fix';
@@ -304,21 +304,21 @@ function addCorrection(said, better, tip) {
   chatEl.appendChild(el);
   el.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
- 
+
 /* ---------- speech recognition ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
- 
+
 // Phones (especially Android Chrome) repeat words in continuous mode,
 // so on phones we listen one short burst at a time and join the bursts ourselves.
 const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 let committed = '';
 let session = '';
- 
+
 function currentText() {
   const raw = IS_MOBILE ? committed + ' ' + session : transcript + ' ' + interim;
   return raw.replace(/\s+/g, ' ').trim();
 }
- 
+
 function commitSession() {
   const piece = session.replace(/\s+/g, ' ').trim();
   session = '';
@@ -326,7 +326,7 @@ function commitSession() {
   if (committed.toLowerCase().trim().endsWith(piece.toLowerCase())) return;
   committed = (committed + ' ' + piece).trim();
 }
- 
+
 function showLive() {
   const shown = currentText();
   if (!shown) return;
@@ -336,7 +336,7 @@ function showLive() {
   clearTimeout(silenceTimer);
   silenceTimer = setTimeout(finishUtterance, SILENCE_MS);
 }
- 
+
 function buildRecognition() {
   const r = new SR();
   r.lang = 'en-IN';
@@ -373,28 +373,28 @@ function buildRecognition() {
   };
   return r;
 }
- 
+
 function startListening() {
   if (!recognition) recognition = buildRecognition();
   transcript = ''; interim = ''; committed = ''; session = ''; liveBubble = null;
   try { recognition.start(); } catch {}
   setState('listening', 'Listening. Speak whenever you are ready.');
 }
- 
+
 function armIdleTimer() {
   clearTimeout(idleTimer);
   idleTimer = setTimeout(() => {
     if (active && micOpen && !liveBubble) endConversation('Paused because it was quiet. Press Start to continue.');
   }, IDLE_MS);
 }
- 
+
 function startTurn() {
   if (!active) return;
   finishing = false;
   startListening();
   armIdleTimer();
 }
- 
+
 function finishUtterance() {
   if (!active || finishing) return;
   const text = currentText();
@@ -407,7 +407,7 @@ function finishUtterance() {
   history.push({ role: 'user', text });
   getReply();
 }
- 
+
 /* ---------- ending ---------- */
 function endConversation(message) {
   clearTimeout(readTimer);
@@ -419,18 +419,18 @@ function endConversation(message) {
   micLabel.textContent = 'Start conversation';
   setState('idle', message || 'Ready when you are.');
 }
- 
+
 /* ---------- speaking ---------- */
 /* ---------- voice: prefer a male English voice on every device ---------- */
 let voices = [];
 function loadVoices() { try { voices = speechSynthesis.getVoices() || []; } catch { voices = []; } }
 loadVoices();
 try { speechSynthesis.onvoiceschanged = loadVoices; } catch {}
- 
+
 const MALE_NAME = /\b(male|david|mark|ravi|george|james|daniel|guy|rishi|alex|fred|aaron|arthur|oliver|thomas|liam|prabhat)\b/i;
 const MALE_ID = /x-(iom|iol|tpd|gbb|gbd|rjs|end|enc)\b/i;
 const FEMALE_NAME = /female|zira|heera|hazel|susan|samantha|karen|moira|tessa|victoria|aria|jenny|libby|sonia|neerja|swara|google us english|google uk english female/i;
- 
+
 function pickVoice() {
   if (!voices.length) loadVoices();
   let best = null, bestScore = -99;
@@ -446,7 +446,7 @@ function pickVoice() {
   }
   return { voice: best, male: bestScore >= 10 };
 }
- 
+
 // How long to leave the correction on screen before the mic opens again.
 let readPauseMs = 0;
 let readTimer = null;
@@ -454,10 +454,10 @@ function readTimeFor(text, tip) {
   const words = `${text || ''} ${tip || ''}`.trim().split(/\s+/).length;
   return Math.min(9000, 3000 + words * 250);
 }
- 
+
 let speakId = 0;
 let currentAudio = null;
- 
+
 function afterSpeech() {
   if (!active) return;
   if (readPauseMs > 0) {
@@ -470,22 +470,50 @@ function afterSpeech() {
     startTurn();
   }
 }
- 
+
 function stopSpeaking() {
   speakId++;
   try { speechSynthesis.cancel(); } catch {}
   if (currentAudio) { try { currentAudio.pause(); } catch {} currentAudio = null; }
   currentUtterance = null;
 }
- 
-// Tries the natural server voice first, falls back to the browser voice.
+
+// Same voice (Guy) on every device: it is made on the server.
+// If it cannot be made, the reply stays on screen and the chat carries on without sound.
+function voiceUnavailable(text, id) {
+  if (id !== speakId || !active) return;
+  currentAudio = null;
+  const words = text.split(/\s+/).length;
+  const wait = Math.min(8000, 2500 + words * 250);
+  setState('thinking', 'Voice is unavailable right now. Read the reply on screen.');
+  clearTimeout(readTimer);
+  readTimer = setTimeout(() => {
+    if (active && id === speakId) { currentUtterance = null; afterSpeech(); }
+  }, wait);
+}
+
 async function speak(text) {
   setState('speaking', `${TUTOR_NAME} is speaking`);
   stopSpeaking();
   const id = speakId;
   currentUtterance = { server: true };
-  let audio = null;
+  let blob = null;
+  for (let attempt = 0; attempt < 2 && !blob; attempt++) {
+    try {
+      const res = await fetch('/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, slow: level === 'beginner' }),
+      });
+      if (res.ok) blob = await res.blob();
+    } catch {}
+    if (id !== speakId || !active) return;
+    if (!blob && attempt === 0) await new Promise((r) => setTimeout(r, 800));
+  }
+  if (!blob) { voiceUnavailable(text, id); return; }
   let finished = false;
+  const audio = new Audio(URL.createObjectURL(blob));
+  currentAudio = audio;
   const done = () => {
     if (finished || id !== speakId) return;
     finished = true;
@@ -493,28 +521,16 @@ async function speak(text) {
     currentUtterance = null;
     afterSpeech();
   };
+  audio.onended = done;
+  audio.onerror = () => { if (!finished) { finished = true; voiceUnavailable(text, id); } };
   try {
-    const res = await fetch('/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, slow: level === 'beginner' }),
-    });
-    if (!res.ok) throw new Error('voice unavailable');
-    const blob = await res.blob();
-    if (id !== speakId || !active) return;
-    audio = new Audio(URL.createObjectURL(blob));
-    currentAudio = audio;
-    audio.onended = done;
-    audio.onerror = done;
     await audio.play();
   } catch {
-    if (id !== speakId || !active) return;
-    if (audio) { audio.onended = null; audio.onerror = null; try { audio.pause(); } catch {} }
-    currentAudio = null;
-    speakWithBrowser(text, id);
+    finished = true;
+    voiceUnavailable(text, id);
   }
 }
- 
+
 function speakWithBrowser(text, id) {
   const u = new SpeechSynthesisUtterance(text);
   const pick = pickVoice();
@@ -540,7 +556,7 @@ function speakWithBrowser(text, id) {
   }, 400);
   speechSynthesis.speak(u);
 }
- 
+
 /* ---------- talking to the server ---------- */
 async function getReply() {
   setState('thinking', `${TUTOR_NAME} is thinking`);
@@ -585,7 +601,7 @@ async function getReply() {
     endConversation(busyMsg);
   }
 }
- 
+
 /* ---------- start / end button ---------- */
 micBtn.addEventListener('click', () => {
   if (!SR) {
@@ -611,4 +627,3 @@ micBtn.addEventListener('click', () => {
     startTurn();
   }
 });
- 
