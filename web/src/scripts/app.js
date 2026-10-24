@@ -308,32 +308,62 @@ function addCorrection(said, better, tip) {
 /* ---------- speech recognition ---------- */
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+// Phones (especially Android Chrome) repeat words in continuous mode,
+// so on phones we listen one short burst at a time and join the bursts ourselves.
+const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+let committed = '';
+let session = '';
+
+function currentText() {
+  const raw = IS_MOBILE ? committed + ' ' + session : transcript + ' ' + interim;
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+function commitSession() {
+  const piece = session.replace(/\s+/g, ' ').trim();
+  session = '';
+  if (!piece) return;
+  if (committed.toLowerCase().trim().endsWith(piece.toLowerCase())) return;
+  committed = (committed + ' ' + piece).trim();
+}
+
+function showLive() {
+  const shown = currentText();
+  if (!shown) return;
+  clearTimeout(idleTimer);
+  if (!liveBubble) liveBubble = addMessage('user', shown, true);
+  else liveBubble.querySelector('.text').textContent = shown;
+  clearTimeout(silenceTimer);
+  silenceTimer = setTimeout(finishUtterance, SILENCE_MS);
+}
+
 function buildRecognition() {
   const r = new SR();
   r.lang = 'en-IN';
-  r.continuous = true;
+  r.continuous = !IS_MOBILE;
   r.interimResults = true;
   r.onstart = () => { micOpen = true; };
   r.onresult = (e) => {
-    let finalText = '';
-    interim = '';
-    for (let i = 0; i < e.results.length; i++) {
-      const piece = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalText += piece + ' '; else interim += piece;
+    if (IS_MOBILE) {
+      session = e.results[e.results.length - 1][0].transcript;
+    } else {
+      let finalText = '';
+      interim = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const piece = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalText += piece + ' '; else interim += piece;
+      }
+      transcript = finalText;
     }
-    transcript = finalText;
-    const shown = (finalText + interim).trim();
-    if (!shown) return;
-    clearTimeout(idleTimer);
-    if (!liveBubble) liveBubble = addMessage('user', shown, true);
-    else liveBubble.querySelector('.text').textContent = shown;
-    clearTimeout(silenceTimer);
-    silenceTimer = setTimeout(finishUtterance, SILENCE_MS);
+    showLive();
   };
   r.onend = () => {
     micOpen = false;
+    if (IS_MOBILE && !finishing) commitSession();
     if (active && !finishing && !currentUtterance) {
-      try { r.start(); } catch {}
+      setTimeout(() => {
+        if (active && !finishing && !currentUtterance) { try { r.start(); } catch {} }
+      }, IS_MOBILE ? 150 : 0);
     }
   };
   r.onerror = (e) => {
@@ -346,7 +376,7 @@ function buildRecognition() {
 
 function startListening() {
   if (!recognition) recognition = buildRecognition();
-  transcript = ''; interim = ''; liveBubble = null;
+  transcript = ''; interim = ''; committed = ''; session = ''; liveBubble = null;
   try { recognition.start(); } catch {}
   setState('listening', 'Listening. Speak whenever you are ready.');
 }
@@ -367,7 +397,7 @@ function startTurn() {
 
 function finishUtterance() {
   if (!active || finishing) return;
-  const text = (transcript + ' ' + interim).replace(/\s+/g, ' ').trim();
+  const text = currentText();
   finishing = true;
   clearTimeout(silenceTimer);
   try { recognition.stop(); } catch {}

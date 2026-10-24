@@ -37,7 +37,7 @@ TUTOR_NAME = "Captain Hamsa"  # change this when you choose the final name
 MAX_MESSAGES = 20     # only the most recent messages are sent, to keep replies fast
 
 DAILY_TURN_LIMIT = 120   # per visitor per day, about 1 hour of conversation
-DAILY_IP_LIMIT = 1500    # backup cap against bots; many students can share one IP
+DAILY_IP_LIMIT = 100000    # backup cap against bots; many students can share one IP
 
 SYSTEM_PROMPT = """You are {name}, a friendly English speaking partner for a learner in India.
 The learner's words come from speech-to-text, so IGNORE punctuation, capital letters
