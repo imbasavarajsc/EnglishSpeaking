@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 
 const TUTOR_NAME = document.body.dataset.tutor || 'Matty';
-const SILENCE_MS = 2000;
+const SILENCE_MS = 3000;
 const IDLE_MS = 30000;
 const LOG_KEY = 'speakup_log';
 const LEVEL_KEY = 'speakup_level';
@@ -410,6 +410,8 @@ function finishUtterance() {
 
 /* ---------- ending ---------- */
 function endConversation(message) {
+  clearTimeout(readTimer);
+  readPauseMs = 0;
   active = false; micOpen = false; finishing = false;
   clearTimeout(silenceTimer); clearTimeout(idleTimer);
   try { recognition && recognition.stop(); } catch {}
@@ -420,11 +422,47 @@ function endConversation(message) {
 }
 
 /* ---------- speaking ---------- */
+/* ---------- voice: prefer a male English voice on every device ---------- */
+let voices = [];
+function loadVoices() { try { voices = speechSynthesis.getVoices() || []; } catch { voices = []; } }
+loadVoices();
+try { speechSynthesis.onvoiceschanged = loadVoices; } catch {}
+
+const MALE_NAME = /\b(male|david|mark|ravi|george|james|daniel|guy|rishi|alex|fred|aaron|arthur|oliver|thomas|liam|prabhat)\b/i;
+const MALE_ID = /x-(iom|iol|tpd|gbb|gbd|rjs|end|enc)\b/i;
+const FEMALE_NAME = /female|zira|heera|hazel|susan|samantha|karen|moira|tessa|victoria|aria|jenny|libby|sonia|neerja|swara|google us english|google uk english female/i;
+
+function pickVoice() {
+  if (!voices.length) loadVoices();
+  let best = null, bestScore = -99;
+  for (const v of voices) {
+    if (!/^en/i.test(v.lang)) continue;
+    const id = `${v.name} ${v.voiceURI}`;
+    let score = 0;
+    if (MALE_NAME.test(v.name) || MALE_ID.test(id)) score += 10;
+    if (FEMALE_NAME.test(v.name)) score -= 10;
+    if (/en[-_]IN/i.test(v.lang)) score += 3;
+    else if (/en[-_](US|GB)/i.test(v.lang)) score += 1;
+    if (score > bestScore) { bestScore = score; best = v; }
+  }
+  return { voice: best, male: bestScore >= 10 };
+}
+
+// How long to leave the correction on screen before the mic opens again.
+let readPauseMs = 0;
+let readTimer = null;
+function readTimeFor(text, tip) {
+  const words = `${text || ''} ${tip || ''}`.trim().split(/\s+/).length;
+  return Math.min(9000, 3000 + words * 250);
+}
+
 function speak(text) {
   setState('speaking', `${TUTOR_NAME} is speaking`);
   try { speechSynthesis.cancel(); } catch {}
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'en-US';
+  const pick = pickVoice();
+  if (pick.voice) { u.voice = pick.voice; u.lang = pick.voice.lang; } else { u.lang = 'en-US'; }
+  u.pitch = pick.male ? 1 : 0.8;
   u.rate = level === 'beginner' ? 0.85 : 1;
   currentUtterance = u;
   let done = false;
@@ -433,7 +471,16 @@ function speak(text) {
     done = true;
     clearInterval(poll);
     if (currentUtterance === u) currentUtterance = null;
-    if (active) startTurn();
+    if (!active) return;
+    if (readPauseMs > 0) {
+      const wait = readPauseMs;
+      readPauseMs = 0;
+      setState('thinking', 'Read the correction above. Listening starts in a moment.');
+      clearTimeout(readTimer);
+      readTimer = setTimeout(() => { if (active) startTurn(); }, wait);
+    } else {
+      startTurn();
+    }
   };
   u.onend = next;
   u.onerror = next;
@@ -468,6 +515,9 @@ async function getReply() {
     if (data.has_mistake && data.corrected && lastUser && isRealFix(lastUser.text, data.corrected)) {
       addCorrection(lastUser.text, data.corrected, data.tip);
       addToLog(lastUser.text, data.corrected, data.tip);
+      readPauseMs = readTimeFor(data.corrected, data.tip);
+    } else {
+      readPauseMs = 0;
     }
     addMessage('ai', data.reply);
     history.push({ role: 'ai', text: data.reply });
