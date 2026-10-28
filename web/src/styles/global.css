@@ -108,14 +108,16 @@ body[data-view="home"] { padding-bottom: 0; }
 .try-next { color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
 
 @media (max-width: 700px) {
-  .home {
-    justify-content: flex-start;
-    padding-top: 110px;
-    background:
-      linear-gradient(to bottom, rgba(7, 11, 20, 0.6) 0%, rgba(7, 11, 20, 0.35) 45%, rgba(7, 11, 20, 0.85) 100%),
-      url('/hero.jpg') 82% 78% / auto 80% no-repeat,
-      #070b14;
+  .home { justify-content: flex-start; padding-top: 104px; background: #070b14; overflow: hidden; }
+  .home::before {
+    content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 60%;
+    background: url('/hero.jpg') 96% 50% / cover no-repeat;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 78%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0%, #000 30%, #000 78%, transparent 100%);
+    pointer-events: none;
   }
+  .home-copy { position: relative; z-index: 1; }
+  .journey { margin: 20px 0 14px; }
 }
 
 /* ---------- chat view ---------- */
@@ -206,9 +208,14 @@ body[data-state="thinking"] .wave { animation: breathe 1.2s ease-in-out infinite
 .journey path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
 .journey .track { stroke: rgba(255, 255, 255, 0.16); stroke-width: 2; }
 .journey .draw { stroke: #6e9bff; stroke-width: 2.6; stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: trail 9s linear infinite; }
-.journey .dot { fill: #fff; filter: drop-shadow(0 0 7px rgba(120, 150, 255, 0.95)); }
+.journey .dotp { stroke: #fff; stroke-width: 11; stroke-dasharray: 0.001 3; stroke-dashoffset: 0; filter: drop-shadow(0 0 7px rgba(120, 150, 255, 0.95)); animation: dotmove 9s linear infinite; }
+@keyframes dotmove { 0% { stroke-dashoffset: 0; opacity: 1; } 92% { stroke-dashoffset: -1; opacity: 1; } 97% { stroke-dashoffset: -1; opacity: 0; } 100% { stroke-dashoffset: 0; opacity: 0; } }
 @keyframes trail { 0% { stroke-dashoffset: 1; opacity: 1; } 92% { stroke-dashoffset: 0; opacity: 1; } 97% { stroke-dashoffset: 0; opacity: 0; } 100% { stroke-dashoffset: 1; opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .journey .draw { animation: none; stroke-dashoffset: 0; } .journey .dot { display: none; } }
+@media (prefers-reduced-motion: reduce) { .journey .draw { animation: none; stroke-dashoffset: 0; } .journey .dotp { display: none; } }
 .points { margin: 0; font-size: 15px; font-weight: 600; color: #aab6cf; letter-spacing: 0.01em; }
 .points b { margin: 0 6px; color: #5b8dff; }
 @media (max-width: 430px) { .points { font-size: 13.5px; white-space: nowrap; } .points b { margin: 0 3px; } }
+
+.guide-link { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 18px; padding: 11px 16px; border-radius: 12px; border: 1px solid var(--line); background: rgba(91, 141, 255, 0.1); color: #cfdcff; font-weight: 700; font-size: 14.5px; text-align: left; }
+.guide-link svg { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.guide-link:hover { background: rgba(91, 141, 255, 0.18); }
