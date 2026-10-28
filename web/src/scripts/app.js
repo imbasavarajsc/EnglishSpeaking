@@ -44,9 +44,13 @@ const QUOTES = [
   ['Learning never exhausts the mind.', 'Attributed to Leonardo da Vinci'],
 ];
 {
-  const [text, by] = QUOTES[Math.floor(Math.random() * QUOTES.length)];
-  $('#quote').textContent = text;
-  $('#quoteBy').textContent = by;
+  const q = $('#quote');
+  const qBy = $('#quoteBy');
+  if (q && qBy) {
+    const [text, by] = QUOTES[Math.floor(Math.random() * QUOTES.length)];
+    q.textContent = text;
+    qBy.textContent = by;
+  }
 }
 
 const PROMPTS = [
@@ -191,47 +195,164 @@ function downloadPdf() {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const M = 48;
+  const M = 44;
   const maxW = W - M * 2;
-  let y = M;
-  const need = (h) => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const LH = 17;
+  const NAVY = [15, 22, 38], BLUE = [59, 130, 246], MUTED = [104, 114, 132];
+  const RED = [196, 56, 46], GREEN = [14, 106, 58], LINE = [222, 228, 238];
+  const pageTop = M;
 
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(20);
-  doc.text('My English practice', M, y); y += 24;
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(100);
+  /* ---- header band ---- */
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, W, 98, 'F');
+  doc.setFillColor(96, 150, 255);
+  [[0, 40, 12], [9, 32, 28], [18, 27, 38], [27, 36, 20]].forEach(([dx, top, h]) => doc.roundedRect(M + dx, top, 5, h, 2.5, 2.5, 'F'));
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(22);
+  doc.text('MettleVoice', M + 46, 54);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(170, 186, 216);
+  doc.text('My English practice sheet', M + 46, 73);
+
   const when = d.startedAt ? new Date(d.startedAt) : null;
   const whenText = when
     ? when.toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
     : d.day;
-  doc.text(`Conversation on ${whenText}`, M, y); y += 16;
-  if (d.level) {
-    doc.text(`Level: ${d.level.charAt(0).toUpperCase() + d.level.slice(1)}   Topic: ${d.topic || 'Anything'}`, M, y); y += 16;
-  }
-  doc.text(`${d.items.length} sentence${d.items.length === 1 ? '' : 's'} to revise`, M, y); y += 26;
-  doc.setTextColor(0);
+  doc.text(whenText, W - M, 54, { align: 'right' });
+  const lvl = d.level ? d.level.charAt(0).toUpperCase() + d.level.slice(1) : '';
+  if (lvl) doc.text(`${lvl}  |  ${d.topic || 'Anything'}`, W - M, 73, { align: 'right' });
+
+  /* ---- summary line ---- */
+  let y = 98 + 34;
+  doc.setTextColor(...NAVY);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15);
+  doc.text(`${d.items.length} sentence${d.items.length === 1 ? '' : 's'} to practise`, M, y);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(...MUTED);
+  y += 18;
+  doc.text('Red crossed words are removed. Green words are the better choice. Say each better sentence out loud.', M, y);
+  y += 26;
+
+  const need = (h) => { if (y + h > H - 60) { doc.addPage(); y = pageTop; } };
+
+  /* ---- draw words one by one so we can colour changes ---- */
+  const flow = (tokens, x, baseY, width, draw) => {
+    doc.setFontSize(12);
+    let cx = x, line = 0;
+    for (const t of tokens) {
+      doc.setFont('helvetica', t.style === 'add' ? 'bold' : 'normal');
+      const ww = doc.getTextWidth(t.text);
+      const sp = doc.getTextWidth(' ');
+      if (cx > x && cx + ww > x + width) { cx = x; line++; }
+      if (draw) {
+        const yy = baseY + line * LH;
+        if (t.style === 'add') {
+          doc.setFillColor(214, 244, 226);
+          doc.roundedRect(cx - 2, yy - 11.5, ww + 4, 16, 3, 3, 'F');
+          doc.setTextColor(...GREEN);
+        } else if (t.style === 'del') {
+          doc.setTextColor(...RED);
+        } else {
+          doc.setTextColor(...NAVY);
+        }
+        doc.text(t.text, cx, yy);
+        if (t.style === 'del') {
+          doc.setDrawColor(...RED);
+          doc.setLineWidth(1);
+          doc.line(cx, yy - 3.5, cx + ww, yy - 3.5);
+        }
+      }
+      cx += ww + sp + (t.style === 'add' ? 2 : 0);
+    }
+    return line + 1;
+  };
 
   d.items.forEach((it, i) => {
-    const said = doc.splitTextToSize(clean(it.said), maxW - 12);
-    const better = doc.splitTextToSize(clean(it.better), maxW - 12);
-    const tip = it.tip ? doc.splitTextToSize('Tip: ' + clean(it.tip), maxW - 12) : [];
-    need(30 + (said.length + better.length + tip.length) * 15 + 40);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
-    doc.text(`${i + 1}.`, M, y); y += 16;
-    doc.setFontSize(10); doc.setTextColor(150, 60, 50);
-    doc.text('You said', M + 12, y); y += 13;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(0);
-    doc.text(said, M + 12, y); y += said.length * 15 + 6;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(30, 110, 80);
-    doc.text('Better way to say it', M + 12, y); y += 13;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(0);
-    doc.text(better, M + 12, y); y += better.length * 15 + 4;
-    if (tip.length) {
-      doc.setFontSize(11); doc.setTextColor(100);
-      doc.text(tip, M + 12, y); y += tip.length * 14 + 4;
-      doc.setTextColor(0);
+    const diff = wordDiff(clean(it.said), clean(it.better));
+    const saidTokens = diff.filter(([k]) => k !== 'add').map(([k, w]) => ({ text: w, style: k === 'del' ? 'del' : 'same' }));
+    const betterTokens = diff.filter(([k]) => k !== 'del').map(([k, w]) => ({ text: w, style: k === 'add' ? 'add' : 'same' }));
+    const innerX = M + 38;
+    const innerW = maxW - 38 - 14;
+    const sLines = flow(saidTokens, innerX, 0, innerW, false);
+    const bLines = flow(betterTokens, innerX, 0, innerW, false);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5);
+    const tipLines = it.tip ? doc.splitTextToSize('Tip: ' + clean(it.tip), innerW) : [];
+
+    const h = 20 + 16 + (sLines - 1) * LH + 26 + 16 + (bLines - 1) * LH
+      + (tipLines.length ? 20 + (tipLines.length - 1) * 14 : 0) + 24 + 14;
+    need(h + 14);
+
+    doc.setDrawColor(...LINE);
+    doc.setFillColor(250, 251, 254);
+    doc.setLineWidth(0.8);
+    doc.roundedRect(M, y, maxW, h, 9, 9, 'FD');
+
+    doc.setFillColor(...BLUE);
+    doc.circle(M + 19, y + 23, 10.5, 'F');
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5);
+    doc.text(String(i + 1), M + 19, y + 26.5, { align: 'center' });
+
+    let cy = y + 20;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...RED);
+    doc.text('You said', innerX, cy);
+    const s1 = cy + 16;
+    flow(saidTokens, innerX, s1, innerW, true);
+    cy = s1 + (sLines - 1) * LH + 26;
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(...GREEN);
+    doc.text('Better way to say it', innerX, cy);
+    const s2 = cy + 16;
+    flow(betterTokens, innerX, s2, innerW, true);
+    cy = s2 + (bLines - 1) * LH;
+
+    if (tipLines.length) {
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(10.5); doc.setTextColor(...MUTED);
+      doc.text(tipLines, innerX, cy + 20);
+      cy += 20 + (tipLines.length - 1) * 14;
     }
-    y += 14;
+
+    cy += 24;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5); doc.setTextColor(...MUTED);
+    doc.text('Say it out loud 3 times', innerX, cy);
+    const boxX = innerX + doc.getTextWidth('Say it out loud 3 times') + 12;
+    doc.setDrawColor(...MUTED); doc.setLineWidth(0.8);
+    for (let k = 0; k < 3; k++) doc.roundedRect(boxX + k * 17, cy - 9, 11, 11, 2, 2, 'S');
+
+    y += h + 14;
   });
+
+  /* ---- things to remember ---- */
+  const tips = [];
+  d.items.forEach((it) => {
+    const t = clean(it.tip);
+    if (t && !tips.some((x) => x.toLowerCase() === t.toLowerCase())) tips.push(t);
+  });
+  if (tips.length) {
+    need(60);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(...NAVY);
+    doc.text('Remember these', M, y + 8);
+    y += 28;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    tips.slice(0, 6).forEach((t) => {
+      const lines = doc.splitTextToSize(t, maxW - 18);
+      need(lines.length * 15 + 8);
+      doc.setFillColor(...BLUE);
+      doc.circle(M + 4, y - 3.5, 2.2, 'F');
+      doc.setTextColor(...NAVY);
+      doc.text(lines, M + 16, y);
+      y += lines.length * 15 + 6;
+    });
+  }
+
+  /* ---- footer on every page ---- */
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(...LINE); doc.setLineWidth(0.8);
+    doc.line(M, H - 40, W - M, H - 40);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUTED);
+    doc.text('MettleVoice  |  Free English speaking practice', M, H - 24);
+    doc.text(`Page ${p} of ${pages}`, W - M, H - 24, { align: 'right' });
+  }
+
   const stamp = d.startedAt
     ? new Date(d.startedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }).replace(':', '')
     : '';
@@ -601,6 +722,9 @@ async function getReply() {
     endConversation(busyMsg);
   }
 }
+
+/* leaving the page (back button, closing the tab) stops the tutor */
+window.addEventListener('pagehide', () => { if (active) endConversation('Ready when you are.'); });
 
 /* ---------- start / end button ---------- */
 micBtn.addEventListener('click', () => {
