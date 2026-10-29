@@ -259,7 +259,7 @@ function downloadPdf() {
   [[0, 40, 12], [9, 32, 28], [18, 27, 38], [27, 36, 20]].forEach(([dx, top, h]) => doc.roundedRect(M + dx, top, 5, h, 2.5, 2.5, 'F'));
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(22);
-  doc.text('MettleVoice', M + 46, 54);
+  doc.text('Hamsavani', M + 46, 54);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(170, 186, 216);
   doc.text('My English practice sheet', M + 46, 73);
 
@@ -400,7 +400,7 @@ function downloadPdf() {
     doc.setDrawColor(...LINE); doc.setLineWidth(0.8);
     doc.line(M, H - 40, W - M, H - 40);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUTED);
-    doc.text('MettleVoice  |  Free English speaking practice', M, H - 24);
+    doc.text('Hamsavani  |  Free English speaking practice', M, H - 24);
     doc.text(`Page ${p} of ${pages}`, W - M, H - 24, { align: 'right' });
   }
 
@@ -426,7 +426,7 @@ function downloadGuide() {
   [[0, 40, 12], [9, 32, 28], [18, 27, 38], [27, 36, 20]].forEach(([dx, top, h]) => doc.roundedRect(M + dx, top, 5, h, 2.5, 2.5, 'F'));
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(22);
-  doc.text('MettleVoice', M + 46, 54);
+  doc.text('Hamsavani', M + 46, 54);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(170, 186, 216);
   doc.text('English practice guide', M + 46, 73);
   doc.text('Tenses  |  Daily talk  |  Mistakes', W - M, 63, { align: 'right' });
@@ -563,12 +563,12 @@ function downloadGuide() {
     doc.setDrawColor(...LINE); doc.setLineWidth(0.8);
     doc.line(M, H - 40, W - M, H - 40);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUTED);
-    doc.text('MettleVoice  |  Free English speaking practice', M, H - 24);
+    doc.text('Hamsavani  |  Free English speaking practice', M, H - 24);
     doc.text(`Page ${p} of ${pages}`, W - M, H - 24, { align: 'right' });
   }
 
 
-  doc.save('mettlevoice-practice-guide.pdf');
+  doc.save('hamsavani-practice-guide.pdf');
 }
 
 pdfBtn.addEventListener('click', downloadPdf);
